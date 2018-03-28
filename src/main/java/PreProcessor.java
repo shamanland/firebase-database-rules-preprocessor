@@ -2,10 +2,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings("unchecked")
 public class PreProcessor {
@@ -21,7 +18,7 @@ public class PreProcessor {
 
             Map<String, Object> map = gson.fromJson(in, Map.class);
 
-            process(map);
+            process(map, Collections.emptyMap());
 
             out.append(gson.toJson(map));
         } finally {
@@ -30,10 +27,10 @@ public class PreProcessor {
         }
     }
 
-    private static void process(Map<String, Object> map) {
+    private static void process(Map<String, Object> map, Map<Character, String> subs) {
         List<Map> children = new LinkedList<>();
 
-        Map<Character, String> substitutions = new HashMap<>();
+        Map<Character, String> localSubs = new HashMap<>();
 
         for (Map.Entry<String, Object> e : map.entrySet()) {
             if (e.getKey().startsWith("..")) {
@@ -41,23 +38,32 @@ public class PreProcessor {
                     throw new IllegalStateException("Macro '" + e.getKey() + "' is too long");
                 }
 
-                substitutions.put(e.getKey().charAt(2), (String) e.getValue());
+                localSubs.put(e.getKey().charAt(2), (String) e.getValue());
             } else if (e.getValue() instanceof Map) {
                 children.add((Map) e.getValue());
             }
         }
 
-        substitute(map, ".read", substitutions);
-        substitute(map, ".write", substitutions);
-        substitute(map, ".validate", substitutions);
+        Map<Character, String> mergedSubs = merge(subs, localSubs);
 
-        for (Character k : substitutions.keySet()) {
+        substitute(map, ".read", mergedSubs);
+        substitute(map, ".write", mergedSubs);
+        substitute(map, ".validate", mergedSubs);
+
+        for (Character k : localSubs.keySet()) {
             map.remove(".." + k);
         }
 
         for (Map m : children) {
-            process(m);
+            process(m, mergedSubs);
         }
+    }
+
+    private static <K, V> Map<K, V> merge(Map<K, V> map1, Map<K, V> map2) {
+        Map<K, V> result = new HashMap<>();
+        result.putAll(map1);
+        result.putAll(map2);
+        return Collections.unmodifiableMap(result);
     }
 
     private static void substitute(Map<String, Object> map, String key, Map<Character, String> substitutions) {

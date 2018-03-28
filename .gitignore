@@ -1,0 +1,17 @@
+.gradle
+.idea
+*.iml
+build
+*~
+*.tmp
+*.log
+*.bak
+local.properties
+tmp
+
+# files from device
+traces.txt
+
+.DS_Store
+out
+
